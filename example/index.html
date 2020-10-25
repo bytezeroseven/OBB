@@ -8,7 +8,7 @@
 				margin: 0;
 			}
 
-			canvas {
+			.canvas {
 				position: absolute;
 				left: 0;
 				top: 0;
@@ -55,6 +55,7 @@
 		</style>
 	</head>
 	<body>
+		<canvas class="canvas"></canvas>
 		<div class="stats-container"></div>
 		<div class="container">
 			<div class="text">[ASWD] Move</div>
@@ -64,7 +65,7 @@
 			<div class="text">[Shift] Descend</div>
 		</div>
 		<script src="https://cdn.jsdelivr.net/npm/stats-js@1.0.1/build/stats.min.js"></script>
-		<script src="src/OBB.js"></script>
+		<script src="../src/OBB.js"></script>
 		<script type="module">
 
 			import * as THREE from 'https://threejs.org/build/three.module.js';
@@ -104,6 +105,7 @@
 			function init() {
 
 				renderer = new THREE.WebGLRenderer( {
+					canvas: document.querySelector( '.canvas' ),
 					alpha: true,
 					antialias: true
 				} );
@@ -113,8 +115,6 @@
 				renderer.setPixelRatio( window.devicePixelRatio );
 
 				renderer.setClearColor( 0xe4e4e4 );
-
-				document.body.appendChild( renderer.domElement );
 
 				scene = new THREE.Scene();
 
