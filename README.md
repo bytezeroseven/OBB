@@ -1,6 +1,6 @@
 # Oriented Bounding Box
 
-Collision handler for oriented bounding boxes using SAT. [Live Demo](https://bytezeroseven.github.io/OBB)
+Collision handler for oriented bounding boxes using SAT. [Live Demo](https://bytezeroseven.github.io/OBB/example)
 
 ## Example #1: Detecting/Resolving collision
 ```js
