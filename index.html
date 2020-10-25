@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>OBB</title>
+		<style>
+
+			body {
+				margin: 0;
+			}
+
+			canvas {
+				position: absolute;
+				left: 0;
+				top: 0;
+				width: 100%;
+				height: 100%;
+				display: block;
+				outline: 0;
+			}
+
+			.container {
+				position: absolute;
+				right: 20px;
+				bottom: 20px;
+				display: flex;
+				flex-direction: column;
+				align-items: flex-end;
+				pointer-events: none;
+			}
+
+			.container > * {
+				margin-bottom: 0.5em;
+			}
+
+			.container > *:last-child {
+				margin-bottom: 0;
+			}
+
+			.text {
+				color: #fff;
+				font-family: monospace;
+				background: #000;
+				padding: 0.5em;
+				border-radius: 0.5em;
+				font-size: 1em;
+				font-weight: bolder;
+			}
+
+			.stats-container {
+				position: absolute;
+				left: 0;
+				top: 0;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div class="stats-container"></div>
+		<div class="container">
+			<div class="text">[ASWD] Move</div>
+			<div class="text">[Q] Rotate Left</div>
+			<div class="text">[E] Rotate Right</div>
+			<div class="text">[Space] Ascend</div>
+			<div class="text">[Shift] Descend</div>
+		</div>
+		<script src="https://cdn.jsdelivr.net/npm/stats-js@1.0.1/build/stats.min.js"></script>
+		<script src="src/OBB.js"></script>
+		<script type="module">
+
+			import * as THREE from 'https://threejs.org/build/three.module.js';
+			import { OrbitControls } from 'https://threejs.org/examples/jsm/controls/OrbitControls.js';
+
+			let renderer, scene, camera;
+
+			let player;
+			let boxes;
+
+			let collisionColor;
+			let playerColor;
+			let obstacleColor;
+
+			let stats;
+
+			let area = 200;
+			let minSize = 5;
+			let maxSize = 10;
+			let count = 400;
+
+			let rotateLeft = false;
+			let rotateRight = false;
+			let moveLeft = false;
+			let moveRight = false;
+			let moveForward = false;
+			let moveBackward = false;
+			let moveUp = false;
+			let moveDown = false;
+
+			let rotateSpeed = 0.05;
+			let moveSpeed = 0.2;
+
+			init();
+			animate();
+
+			function init() {
+
+				renderer = new THREE.WebGLRenderer( {
+					alpha: true,
+					antialias: true
+				} );
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				renderer.setPixelRatio( window.devicePixelRatio );
+
+				renderer.setClearColor( 0xe4e4e4 );
+
+				document.body.appendChild( renderer.domElement );
+
+				scene = new THREE.Scene();
+
+				camera = new THREE.PerspectiveCamera( 75, renderer.domElement.width / renderer.domElement.height, 0.1, 1000 );
+
+				player = new OBB( { x: 0, y: 2.5, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 5, y: 10, z: 5 } );
+
+				obstacleColor = new THREE.Color( 'blue' );
+				playerColor = new THREE.Color( 'black' );
+				collisionColor = new THREE.Color( 'red' );
+
+				let geometry = new THREE.BoxBufferGeometry();
+
+				let playerMaterial = new THREE.MeshLambertMaterial( {
+					color: playerColor,
+				} );
+
+				let playerMesh = new THREE.Mesh( geometry, playerMaterial );
+
+				playerMesh.scale.set( player.size.x, player.size.y, player.size.z );
+
+				let outlineMaterial = new THREE.MeshBasicMaterial( {
+					color: 'orange',
+					side: THREE.BackSide
+				} );
+
+				let outlineMesh = new THREE.Mesh( geometry, outlineMaterial );
+
+				outlineMesh.scale.setScalar( 1.10 );
+
+				playerMesh.add( outlineMesh );
+
+				let arrow = new THREE.ArrowHelper( undefined, undefined, undefined, 0xff0000 );
+
+				arrow.position.y = 1;
+
+				playerMesh.add( arrow );
+
+				scene.add( playerMesh );
+
+				player.mesh = playerMesh;
+
+				//
+
+				scene.add( new THREE.AmbientLight( 0xffffff, 0.5 ) );
+
+				camera.add( new THREE.DirectionalLight( 0xffffff, 0.5 ) );
+
+				scene.add( camera );
+
+				boxes = [];
+			
+				for ( let i = 0; i < count; i ++ ) {
+
+					let box = new OBB( {
+						x: - area / 2 + Math.random() * area,
+						y: - area / 2 + Math.random() * area,
+						z: - area / 2 + Math.random() * area,
+					}, {
+						x: Math.random() * 6.28,
+						y: Math.random() * 6.28,
+						z: Math.random() * 6.28,
+					}, {
+						x: minSize + Math.random() * ( maxSize - minSize ),
+						y: minSize + Math.random() * ( maxSize - minSize ),
+						z: minSize + Math.random() * ( maxSize - minSize ),
+					} );
+
+					boxes.push( box );
+
+					let material = new THREE.MeshLambertMaterial( {
+						color: Math.random() * 0xffffff
+					} );
+
+					let mesh = new THREE.Mesh( geometry, material );
+
+					mesh.position.copy( box.position );
+					mesh.rotation.set( box.rotation.x, box.rotation.y, box.rotation.z );
+					mesh.scale.set( box.size.x, box.size.y, box.size.z );
+
+					scene.add( mesh );
+
+					box.mesh = mesh;
+					box.color = material.color;
+
+				}
+
+				camera.position.set( 40, 20, 40 );
+				camera.lookAt( 0, 0, 0 );
+
+				let controls = new OrbitControls( camera, renderer.domElement );
+
+				stats = new Stats();
+
+				document.querySelector( '.stats-container' ).appendChild( stats.domElement );
+
+				window.addEventListener( 'keydown', onKeyDown, false );
+				window.addEventListener( 'keyup', onKeyUp, false );
+				window.addEventListener( 'resize', onWindowResize, false );
+
+
+			}
+
+			function animate() {
+
+				stats.update();
+
+				if ( rotateLeft ) {
+
+					player.rotation.y -= rotateSpeed;
+
+				} else if ( rotateRight ) {
+
+					player.rotation.y += rotateSpeed;
+
+				}
+
+				let dirX = 0;
+				let dirZ = 0;
+
+				let sinYaw = Math.sin( player.rotation.y );
+				let cosYaw = Math.cos( player.rotation.y );
+
+				if ( moveForward ) {
+
+					dirX += sinYaw;
+					dirZ += cosYaw;
+
+				} else if ( moveBackward ) {
+
+					dirX -= sinYaw;
+					dirZ -= cosYaw;
+
+				}
+
+				if ( moveLeft ) {
+
+					dirX -= - cosYaw;
+					dirZ -= sinYaw;
+
+				} else if ( moveRight ) {
+
+					dirX += - cosYaw;
+					dirZ += sinYaw;
+
+				}
+
+				if ( moveUp ) {
+
+			  	player.position.y += moveSpeed;
+
+				} else if ( moveDown ) {
+
+			  	player.position.y -= moveSpeed;
+
+				}
+
+				player.position.x += dirX * moveSpeed;
+				player.position.z += dirZ * moveSpeed;
+
+				player.update();
+
+
+				for ( let i = 0; i < boxes.length; i ++ ) {
+
+					let box = boxes[ i ];
+
+					let intersection = player.intersectsObb( boxes[ i ] );
+
+					 if ( intersection ) {
+
+					   player.position.x += intersection.vector.x * intersection.overlap;
+					   player.position.y += intersection.vector.y * intersection.overlap;
+					   player.position.z += intersection.vector.z * intersection.overlap;
+
+					 	player.mesh.material.color = box.mesh.material.color = collisionColor;
+
+					 } else {
+
+					 	box.mesh.material.color = box.color;
+					 	player.mesh.material.color = playerColor;
+
+					 }
+
+					 box.mesh.material.needsUpdate = true;
+
+				}
+
+			 	player.mesh.material.needsUpdate = true;
+
+
+				player.mesh.position.copy( player.position );
+				player.mesh.rotation.set( player.rotation.x, player.rotation.y, player.rotation.z );
+
+				renderer.render( scene, camera );
+
+				window.requestAnimationFrame( animate );
+
+			}
+
+			function onKeyDown( event ) {
+
+				setMovementFlagsFromKeyCode( event.keyCode, true );
+
+			}
+
+			function onKeyUp( event ) {
+
+				setMovementFlagsFromKeyCode( event.keyCode, false );
+
+			}
+
+			function onWindowResize() {
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+
+				camera.updateProjectionMatrix();
+
+			 	renderer.render( scene, camera );
+
+			}
+
+			function setMovementFlagsFromKeyCode( keyCode, value ) {
+
+				switch ( event.keyCode ) {
+
+					case 65:
+
+						moveLeft = value;
+
+						break;
+
+					case 87:
+
+						moveForward = value;
+
+						break;
+
+					case 68:
+
+						moveRight = value;
+
+						break;
+
+					case 83:
+
+						moveBackward = value;
+
+						break;
+
+					case 37:
+					case 81:
+
+						rotateLeft = value;
+
+			    	break;
+
+					case 39:
+					case 69:
+
+						rotateRight = value;
+
+			    	break;
+
+
+					case 32:
+
+			    	moveUp = value;
+
+			    	break;
+
+					case 16:
+
+			    	moveDown = value;
+
+			    	break;
+
+				}
+
+			}
+
+		</script>
+	</body>
+</html>
