@@ -6,6 +6,7 @@
 
 			body {
 				margin: 0;
+				user-select: none;
 			}
 
 			.canvas {
@@ -24,11 +25,48 @@
 				top: 0;
 			}
 
+			.chkbox-wrapper {
+				display: flex;
+				align-items: center;
+				position: absolute;
+				bottom: 20px;
+				left: 20px;
+				cursor: pointer;
+			}
+
+			.chkbox-wrapper input {
+				display: none;
+			}
+
+			.box {
+				width: 1.75em;
+				height: 1.75em;
+				border-radius: 0.25em;
+				background: #fff;
+				border: 1px solid #000;
+			}
+
+			.label {
+				font-family: monospace;
+				color: #000;
+				font-size: 1.5em;
+				margin-left: 0.4em;
+			}
+
+			.chkbox-wrapper input:checked ~ .box {
+				background: #ff6900;
+			}
+
 		</style>
 	</head>
 	<body>
 		<canvas class="canvas"></canvas>
 		<div class="stats-container"></div>
+		<label class="chkbox-wrapper">
+			<input type="checkbox" class="use-octree" checked>
+			<div class="box"></div>
+			<span class="label">Use Octree</span>
+		</label>
 		<script src="https://cdn.jsdelivr.net/npm/stats-js@1.0.1/build/stats.min.js"></script>
 		<script src="../src/OBB.js"></script>
 		<script src="./js/Octree.js"></script>
@@ -50,6 +88,8 @@
 			let minSize = 2;
 			let maxSize = 15;
 			let count = 1000;
+
+			let useOctree = true;
 
 			init();
 			animate();
@@ -125,19 +165,6 @@
 
 				}
 
-				let boxGeometry = new THREE.EdgesGeometry( new THREE.BoxBufferGeometry(), Math.PI / 2 );
-
-				let boxMaterial = new THREE.MeshBasicMaterial( {
-					color: '#333'
-				} );
-
-				camera.position.set( area / 2, area, area );
-				camera.lookAt( 0, 0, 0 );
-
-				let controls = new OrbitControls( camera, renderer.domElement );
-
-				stats = new Stats();
-
 				let outlineGeometry = new THREE.EdgesGeometry( new THREE.BoxBufferGeometry( area, area, area ), Math.PI / 2 );
 
 				let outlineMaterial = new THREE.LineBasicMaterial( {
@@ -148,7 +175,20 @@
 
 				scene.add( outline );
 
+				camera.position.set( area / 2, area, area );
+				camera.lookAt( 0, 0, 0 );
+
+				let controls = new OrbitControls( camera, renderer.domElement );
+
+				stats = new Stats();
+
 				document.querySelector( '.stats-container' ).appendChild( stats.domElement );
+
+				document.querySelector( '.use-octree' ).oninput = function () {
+
+					useOctree = this.checked;
+
+				}
 
 				window.addEventListener( 'resize', onWindowResize, false );
 
@@ -166,7 +206,11 @@
 
 					updateBox( box );
 
-					octree.insert( box.boundingBox );
+					if ( useOctree ) {
+
+						octree.insert( box.boundingBox );
+
+					}
 
 					box.intersecting = false;
 
@@ -176,27 +220,31 @@
 
 					let a = boxes[ i ];
 
-					octree.query( a.boundingBox, function ( b ) {
+					if ( ! useOctree ) {
 
-						if ( b.obb === a ) return;
+						for ( let j = 0; j < boxes.length; j ++ ) {
 
-						let intersection = a.intersectsObb( b.obb );
+							if ( j === i ) continue;
 
-						if ( intersection !== false ) {
+							let b = boxes[ j ];
 
-							a.position.x += intersection.vector.x * intersection.overlap;
-							a.position.y += intersection.vector.y * intersection.overlap;
-							a.position.z += intersection.vector.z * intersection.overlap;
-
-							a.rx *= - 1;
-							a.ry *= - 1;
-							a.rz *= - 1;
-
-							a.intersecting = true;
+							checkCollision( a, b );
 
 						}
 
-					} );
+					} else {
+
+						octree.query( a.boundingBox, function ( b ) {
+
+							b = b.obb;
+
+							if ( b === a ) return;
+
+							checkCollision( a, b );
+
+						} );
+
+					}
 
 					a.mesh.material.color = a.intersecting ? collisionColor : a.color;
 					a.mesh.material.needsUpdate = true;
@@ -206,6 +254,26 @@
 				renderer.render( scene, camera );
 
 				window.requestAnimationFrame( animate );
+
+			}
+
+			function checkCollision( a, b ) {
+
+				let intersection = a.intersectsObb( b );
+
+				if ( intersection !== false ) {
+
+					a.position.x += intersection.vector.x * intersection.overlap;
+					a.position.y += intersection.vector.y * intersection.overlap;
+					a.position.z += intersection.vector.z * intersection.overlap;
+
+					a.rx *= - 1;
+					a.ry *= - 1;
+					a.rz *= - 1;
+
+					a.intersecting = true;
+
+				}
 
 			}
 
