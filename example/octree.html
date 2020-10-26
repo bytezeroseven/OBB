@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>OBB</title>
+		<style>
+
+			body {
+				margin: 0;
+			}
+
+			.canvas {
+				position: absolute;
+				left: 0;
+				top: 0;
+				width: 100%;
+				height: 100%;
+				display: block;
+				outline: 0;
+			}
+
+			.stats-container {
+				position: absolute;
+				left: 0;
+				top: 0;
+			}
+
+		</style>
+	</head>
+	<body>
+		<canvas class="canvas"></canvas>
+		<div class="stats-container"></div>
+		<script src="https://cdn.jsdelivr.net/npm/stats-js@1.0.1/build/stats.min.js"></script>
+		<script src="../src/OBB.js"></script>
+		<script src="./js/Octree.js"></script>
+		<script type="module">
+
+			import * as THREE from 'https://threejs.org/build/three.module.js';
+			import { OrbitControls } from 'https://threejs.org/examples/jsm/controls/OrbitControls.js';
+
+			let renderer, scene, camera;
+
+			let player;
+			let boxes;
+
+			let collisionColor;
+
+			let stats;
+
+			let area = 350;
+			let minSize = 2;
+			let maxSize = 15;
+			let count = 1000;
+
+			init();
+			animate();
+
+			function init() {
+
+				renderer = new THREE.WebGLRenderer( {
+					canvas: document.querySelector( '.canvas' ),
+					alpha: true,
+					antialias: true
+				} );
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				renderer.setPixelRatio( window.devicePixelRatio );
+
+				renderer.setClearColor( 0xe4e4e4 );
+
+				renderer.outputEncoding = THREE.sRGBEncoding;
+
+				scene = new THREE.Scene();
+
+				camera = new THREE.PerspectiveCamera( 75, renderer.domElement.width / renderer.domElement.height, 0.1, 1000 );
+
+				collisionColor = new THREE.Color( 'red' );
+
+				scene.add( new THREE.AmbientLight( 0xffffff, 0.5 ) );
+
+				camera.add( new THREE.DirectionalLight( 0xffffff, 0.5 ) );
+
+				scene.add( camera );
+
+				boxes = [];
+
+				let geometry = new THREE.BoxBufferGeometry();
+			
+				for ( let i = 0; i < count; i ++ ) {
+
+					let box = new OBB( {
+						x: - area / 2 + Math.random() * area,
+						y: - area / 2 + Math.random() * area,
+						z: - area / 2 + Math.random() * area,
+					}, {
+						x: Math.random() * 6.28,
+						y: Math.random() * 6.28,
+						z: Math.random() * 6.28,
+					}, {
+						x: minSize + Math.random() * ( maxSize - minSize ),
+						y: minSize + Math.random() * ( maxSize - minSize ),
+						z: minSize + Math.random() * ( maxSize - minSize ),
+					} );
+
+					let material = new THREE.MeshLambertMaterial( {
+						color: Math.random() * 0xffffff
+					} );
+
+					let mesh = new THREE.Mesh( geometry, material );
+
+					mesh.position.copy( box.position );
+					mesh.rotation.set( box.rotation.x, box.rotation.y, box.rotation.z );
+					mesh.scale.set( box.size.x, box.size.y, box.size.z );
+
+					scene.add( mesh );
+
+					box.mesh = mesh;
+					box.color = material.color;
+
+					box.rx = ( Math.random() - 0.5 ) * 0.1;
+					box.ry = ( Math.random() - 0.5 ) * 0.1;
+					box.rz = ( Math.random() - 0.5 ) * 0.1;
+
+					boxes.push( box );
+
+				}
+
+				let boxGeometry = new THREE.EdgesGeometry( new THREE.BoxBufferGeometry(), Math.PI / 2 );
+
+				let boxMaterial = new THREE.MeshBasicMaterial( {
+					color: '#333'
+				} );
+
+				camera.position.set( area / 2, area, area );
+				camera.lookAt( 0, 0, 0 );
+
+				let controls = new OrbitControls( camera, renderer.domElement );
+
+				stats = new Stats();
+
+				let outlineGeometry = new THREE.EdgesGeometry( new THREE.BoxBufferGeometry( area, area, area ), Math.PI / 2 );
+
+				let outlineMaterial = new THREE.LineBasicMaterial( {
+					color: '#444'
+				} );
+
+				let outline = new THREE.LineSegments( outlineGeometry, outlineMaterial );
+
+				scene.add( outline );
+
+				document.querySelector( '.stats-container' ).appendChild( stats.domElement );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function animate() {
+
+				stats.update();
+
+				let octree = new Octree( undefined, { x: area, y: area, z: area } );
+
+				for ( let i = 0; i < boxes.length; i ++ ) {
+
+					let box = boxes[ i ];
+
+					updateBox( box );
+
+					octree.insert( box.boundingBox );
+
+					box.intersecting = false;
+
+				}
+
+				for ( let i = 0; i < boxes.length; i ++ ) {
+
+					let a = boxes[ i ];
+
+					octree.query( a.boundingBox, function ( b ) {
+
+						if ( b.obb === a ) return;
+
+						let intersection = a.intersectsObb( b.obb );
+
+						if ( intersection !== false ) {
+
+							a.position.x += intersection.vector.x * intersection.overlap;
+							a.position.y += intersection.vector.y * intersection.overlap;
+							a.position.z += intersection.vector.z * intersection.overlap;
+
+							a.rx *= - 1;
+							a.ry *= - 1;
+							a.rz *= - 1;
+
+							a.intersecting = true;
+
+						}
+
+					} );
+
+					a.mesh.material.color = a.intersecting ? collisionColor : a.color;
+					a.mesh.material.needsUpdate = true;
+
+				}
+
+				renderer.render( scene, camera );
+
+				window.requestAnimationFrame( animate );
+
+			}
+
+			function updateBox( box ) {
+
+				box.rotation.x += box.rx;
+				box.rotation.y += box.ry;
+				box.rotation.z += box.rz;
+
+				box.position.x += box.rx * 10;
+				box.position.y += box.ry * 10;
+				box.position.z += box.rz * 10;
+
+				if ( box.position.x < - area / 2 ) {
+
+					box.position.x = - area / 2;
+					box.rx *= - 1;
+
+				} else if ( box.position.x > area / 2 ) {
+
+					box.position.x = area / 2;
+					box.rx *= - 1;
+
+				}
+
+				if ( box.position.y < - area / 2 ) {
+
+					box.position.y = - area / 2;
+					box.ry *= - 1;
+
+				} else if ( box.position.y > area / 2 ) {
+
+					box.position.y = area / 2;
+					box.ry *= - 1;
+
+				}
+
+				if ( box.position.z < - area / 2 ) {
+
+					box.position.z = - area / 2;
+					box.rz *= - 1;
+
+				} else if ( box.position.z > area / 2 ) {
+
+					box.position.z = area / 2;
+					box.rz *= - 1;
+
+				}
+
+				box.mesh.rotation.set( box.rotation.x, box.rotation.y, box.rotation.z );
+				box.mesh.position.copy( box.position );
+
+				box.update();
+
+			}
+
+			function onWindowResize() {
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+
+				camera.updateProjectionMatrix();
+
+			 	renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
+</html>

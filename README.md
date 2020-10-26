@@ -1,8 +1,13 @@
 # Oriented Bounding Box
 
-Collision handler for oriented bounding boxes using SAT. [Live Demo](https://bytezeroseven.github.io/OBB/example)
+Collision handler for oriented bounding boxes using SAT. 
 
-## Example #1: Detecting/Resolving collision
+## Demos
+
+1. [Simple](https://bytezeroseven.github.io/OBB/example/simple.html)
+2. [1000 OBB's + Octree](https://bytezeroseven.github.io/OBB/example/octree.html)
+
+## Detecting/Resolving collision
 ```js
 let position = {
 	x: 0,
@@ -54,10 +59,11 @@ OBB.prototype.position;
 OBB.prototype.rotation; // euler
 OBB.prototype.size;
 OBB.prototype.vertices;
+OBB.prototype.right;
+OBB.prototype.up;
+OBB.prototype.forward;
 
 // methods
 OBB.prototype.intersectsObb( obb, forceUpdate );
 OBB.prototype.update();
-OBB.prototype.updateBasis();
-OBB.prototype.updateVertices();
 ```

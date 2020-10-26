@@ -12,18 +12,12 @@ Object.assign( OBB.prototype, {
 
 	update: function () {
 
-		this.updateBasis();
-
-		this.updateVertices();
-
-	},
-
-	updateBasis: function () {
+		// update basis
 
 		let cosA = Math.cos( this.rotation.x );
 		let cosB = Math.cos( this.rotation.y );
 		let cosC = Math.cos( this.rotation.z );
-
+		
 		let sinA = Math.sin( this.rotation.x );
 		let sinB = Math.sin( this.rotation.y );
 		let sinC = Math.sin( this.rotation.z );
@@ -41,7 +35,7 @@ Object.assign( OBB.prototype, {
 			y: - sinA * sinB * sinC + cosA * cosC,
 			z: cosA * sinB * sinC + sinA * cosC
 		};
-
+		
 		this.forward = {
 			x: sinB,
 			y: - sinA * cosB,
@@ -61,34 +55,54 @@ Object.assign( OBB.prototype, {
 			y: cosC * cosA,
 			z: sinA
 		};
-
+		
 		this.forward = {
 			x: cosC * sinB + sinC * sinA * cosB,
 			y: sinC * sinB - cosC * sinA * cosB,
 			z: cosA * cosB
 		};*/
 
-	},
+		// update vertices
 
-	updateVertices: function () {
+		this.vertices = [];
 
-		if ( ! this.vertices ) {
-
-			this.vertices = [];
-
-		}
+		this.boundingBox = {
+			min: { 
+				x: Infinity, 
+				y: Infinity, 
+				z: Infinity 
+			},
+			max: { 
+				x: - Infinity, 
+				y: - Infinity, 
+				z: - Infinity 
+			},
+			obb: this
+		};
 
 		for ( let i = 0; i < 8; i ++ ) {
 
 			let x = i % 4 < 2 ? - this.size.x / 2 : this.size.x / 2;
+
 			let y = ( i + 1 ) % 4 < 2 ? this.size.y / 2 : - this.size.y / 2;
+
 			let z = i < 4 ? - this.size.z / 2 : this.size.z / 2;
 
-			this.vertices[ i ] = {
+			let position = {
 				x: this.position.x + x * this.right.x + y * this.up.x + z * this.forward.x,
 				y: this.position.y + x * this.right.y + y * this.up.y + z * this.forward.y,
 				z: this.position.z + x * this.right.z + y * this.up.z + z * this.forward.z,
 			};
+
+			this.vertices.push( position );
+
+			this.boundingBox.min.x = Math.min( position.x, this.boundingBox.min.x );
+			this.boundingBox.min.y = Math.min( position.y, this.boundingBox.min.y );
+			this.boundingBox.min.z = Math.min( position.z, this.boundingBox.min.z );
+
+			this.boundingBox.max.x = Math.max( position.x, this.boundingBox.max.x );
+			this.boundingBox.max.y = Math.max( position.y, this.boundingBox.max.y );
+			this.boundingBox.max.z = Math.max( position.z, this.boundingBox.max.z );
 
 		}
 
@@ -104,12 +118,20 @@ Object.assign( OBB.prototype, {
 
 		}
 
+		if ( this.boundingBox.max.x < obb.boundingBox.min.x || this.boundingBox.min.x > obb.boundingBox.max.x ||
+			this.boundingBox.max.y < obb.boundingBox.min.y || this.boundingBox.min.y > obb.boundingBox.max.y ||
+			this.boundingBox.max.z < obb.boundingBox.min.z || this.boundingBox.min.z > obb.boundingBox.max.z ) {
+
+			return false;
+
+		}
+
 		let axes = [
-			this.right,
-			this.up,
-			this.forward,
-			obb.right,
-			obb.up,
+			this.right, 
+			this.up, 
+			this.forward, 
+			obb.right, 
+			obb.up, 
 			obb.forward,
 			crossAndNormalize( this.right, obb.right ),
 			crossAndNormalize( this.right, obb.up ),
@@ -192,9 +214,15 @@ Object.assign( OBB.prototype, {
 
 		}
 
-		vector.x = Math.abs( vector.x ) * Math.sign( this.position.x - obb.position.x );
-		vector.y = Math.abs( vector.y ) * Math.sign( this.position.y - obb.position.y );
-		vector.z = Math.abs( vector.z ) * Math.sign( this.position.z - obb.position.z );
+		let amount = vector.x * ( this.position.x - obb.position.x ) + vector.y * ( this.position.y - obb.position.y ) + vector.z * ( this.position.z - obb.position.z );
+
+		if ( amount < 0 ) {
+
+			vector.x *= - 1;
+			vector.y *= - 1;
+			vector.z *= - 1;
+
+		}
 
 		return {
 			overlap: minOverlap,
@@ -216,7 +244,7 @@ function crossAndNormalize( a, b ) {
 	let result = {
 		x: a.y * b.z - a.z * b.y,
 		y: a.z * b.x - a.x * b.z,
-		z: a.x * b.y - a.y * b.x
+		z: a.x * b.y - a.y * b.x 
 	};
 
 	let length = Math.hypot( result.x, result.y, result.z );
