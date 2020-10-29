@@ -195,7 +195,23 @@ Object.assign( OBB.prototype, {
 
 			}
 
-			let overlap = Math.min( a_max, b_max ) - Math.max( a_min, b_min );
+			let overlap;
+
+			// check for cases when the projection is fully inside the projection of the other object
+
+			if ( a_max > b_max && a_min < b_min ) {
+
+				overlap = Math.min( a_max - b_min, b_max - a_min );
+
+			} else if ( b_max > a_max && b_min < a_min ) {
+
+				overlap = Math.min( b_max - a_min, a_max - b_min );
+
+			} else {
+
+				overlap = Math.min( a_max, b_max ) - Math.max( a_min, b_min );
+
+			}
 
 			if ( overlap > 0 ) {
 
